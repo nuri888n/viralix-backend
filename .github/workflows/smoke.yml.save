@@ -1,0 +1,41 @@
+name: Smoke test
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install deps
+        run: npm ci
+
+      - name: Start backend (background)
+        run: npm run start:ci &
+
+      - name: Wait for health
+        run: |
+          for i in {1..60}; do
+            if curl -s http://127.0.0.1:3000/health | grep -q '"status":"ok"'; then
+              echo "Backend up ✅"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "Backend failed to start" >&2
+          exit 1
+
+      - name: Run smoketest
+        run: npm run smoke
+

@@ -1,0 +1,85 @@
+// prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./prisma/dev.db"
+}
+
+// Enums
+enum PostStatus {
+  DRAFT
+  SCHEDULED
+  PUBLISHED
+}
+
+enum Platform {
+  TIKTOK
+  INSTAGRAM
+  YOUTUBE
+}
+
+// Modelle
+model User {
+  id        Int      @id @default(autoincrement())
+  email     String   @unique
+  name      String?
+  username  String?  @unique
+  password  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  projects  Project[]
+}
+
+model Project {
+  id          Int      @id @default(autoincrement())
+  userId      Int
+  name        String
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @default(now())
+
+  user         User           @relation(fields: [userId], references: [id])
+  accounts     SocialAccount[]
+  posts        Post[]
+
+  @@index([userId])
+}
+
+model SocialAccount {
+  id        Int      @id @default(autoincrement())
+  projectId Int
+  platform  Platform
+  handle    String
+  createdAt DateTime @default(now())
+  userId    Int?
+
+  project   Project  @relation(fields: [projectId], references: [id])
+
+  @@index([projectId])
+}
+
+model Post {
+  id          Int        @id @default(autoincrement())
+  projectId   Int
+  caption     String
+  mediaUrl    String?
+  scheduledAt DateTime?
+  status      PostStatus @default(DRAFT)
+  publishedAt DateTime?
+
+  // wichtig für deine API: Liste von Account-IDs (als JSON gespeichert)
+  accountIds  Json
+
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  project     Project    @relation(fields: [projectId], references: [id])
+
+  @@index([projectId])
+  @@index([status, scheduledAt])
+}
