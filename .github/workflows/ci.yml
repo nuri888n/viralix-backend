@@ -5,66 +5,67 @@ on:
     branches: [ "main" ]
   pull_request:
     branches: [ "main" ]
-  workflow_dispatch:
 
 jobs:
-  test:
+  smoketest:
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
     steps:
-      - name: Checkout repository
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: npm
 
-      - name: Install dependencies
+      - name: Install deps (ci)
         run: npm ci
 
-      # ---- Prisma ----
       - name: Generate Prisma client
         run: npx prisma generate
 
-      - name: Try migrate deploy
-        id: migrate
-        continue-on-error: true
+      - name: Apply Prisma migrations (deploy)
         run: npx prisma migrate deploy
 
-      - name: Reset DB and seed (fallback)
-        if: steps.migrate.outcome == 'failure'
-        run: |
-          npx prisma migrate reset --force
-          npx prisma generate
-          npx prisma db seed
+      - name: Seed DB
+        run: npx prisma db seed
 
-      # ---- Backend starten ----
+      - name: Ensure test script is executable
+        run: chmod +x scripts/smoketest.sh scripts/api-e2e.sh
+
       - name: Start backend (background)
-        run: nohup npx ts-node src/index.ts > server.log 2>&1 &
-
-      - name: Wait for health (max ~30s)
         run: |
-          for i in {1..30}; do
+          nohup npm run dev > server.log 2>&1 & echo $! > server.pid
+          sleep 1
+          echo "pid=$(cat server.pid)"
+
+      - name: Wait for health
+        run: |
+          for i in {1..60}; do
             if curl -s http://127.0.0.1:3000/health | grep -q '"status":"ok"'; then
               echo "✅ backend up"
               exit 0
             fi
             sleep 1
           done
-          echo "❌ backend failed to start" >&2
+          echo "❌ backend failed to start"
           exit 1
 
-      # ---- E2E ----
       - name: Run E2E script
-        run: npm run api:e2e
+        run: bash scripts/api-e2e.sh
 
-      # ---- Bei Fehlern Logs sichern ----
-      - name: Upload server log (on failure)
-        if: ${{ failure() }}
+      # ---- Debug & Artefakte (immer ausführen) ----
+      - name: Print server.log (last 200 lines)
+        if: always()
+        run: |
+          echo "===== server.log (last 200) ====="
+          tail -n 200 server.log || true
+
+      - name: Upload server.log
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: server.log
+          name: server-log
           path: server.log
