@@ -13,7 +13,8 @@
     "lint:fix": "eslint . --ext .ts --fix",
     "smoke:local": "BASE=http://127.0.0.1:3000 bash ./smoketest.sh",
     "api:e2e": "bash scripts/api-e2e.sh",
-    "test:e2e": "npm run api:e2e"
+    "test:e2e": "npm run api:e2e",
+    "start:ci": "ts-node src/index.ts"
   },
   "devDependencies": {
     "@eslint/js": "^9.35.0",
