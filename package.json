@@ -3,9 +3,9 @@
   "version": "1.0.0",
   "main": "index.js",
   "license": "MIT",
-   "scripts": {
-   "dev": "ts-node src/index.ts",
-   "seed": "ts-node prisma/seed.ts",  
+  "scripts": {
+    "dev": "ts-node src/index.ts",
+    "seed": "ts-node prisma/seed.ts",
     "smoke": "bash ./smoketest.sh",
     "worker": "ts-node src/worker.ts",
     "lint": "eslint . --ext .ts",
@@ -38,6 +38,9 @@
   },
   "dependencies": {
     "@prisma/client": "6.16.1",
-    "bcryptjs": "^3.0.2"
+    "bcryptjs": "^3.0.2",
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.2",
+    "express": "^5.1.0"
   }
 }
