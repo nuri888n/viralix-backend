@@ -1,53 +1,65 @@
 name: CI Smoke + E2E
-on: push
+
+on:
+  push:
+    branches: [ "main" ]
 
 jobs:
-  smoke_e2e:
+  smokee2e:
     runs-on: ubuntu-latest
+    timeout-minutes: 12
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node
+      - name: Use Node
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '18'
+          cache: 'npm'
 
       - name: Install deps (clean)
         run: |
-          rm -rf node_modules
+          rm -rf node_modules package-lock.json || true
           npm ci
 
-      - name: Prisma generate
-        run: npx prisma generate
-
-      - name: Prisma migrate (deploy)
-        run: npx prisma migrate deploy
-
-      - name: (optional) Seed database
-        run: npx prisma db seed
-        continue-on-error: true
-
-      - name: Start backend (background)
+      - name: Prisma generate & migrate (fresh)
         run: |
-          nohup npx ts-node src/index.ts > server.log 2>&1 & echo $! > server.pid
+          npx prisma generate
+          npx prisma migrate reset --force --skip-seed
+
+      - name: Start backend (background) → server.log
+        env:
+          HOST: 127.0.0.1
+          PORT: 3000
+        run: |
+          : > server.log
+          nohup npm run dev >> server.log 2>&1 & echo $! > server.pid
+          sleep 1
+          ps aux | grep -E "node|ts-node" | grep -v grep || true
 
       - name: Wait for health
+        env:
+          HOST: 127.0.0.1
+          PORT: 3000
         run: |
-          for i in {1..30}; do
-            if curl -sf http://127.0.0.1:3000/health | grep -q '"status":"ok"'; then
-              echo "✅ backend up"
+          set -e
+          for i in $(seq 1 30); do
+            if curl -sS http://127.0.0.1:3000/health | jq -e '.status=="ok"' >/dev/null 2>&1; then
+              echo "backend up ✅"
               exit 0
             fi
-            echo "…waiting ($i)"
             sleep 1
           done
-          echo "❌ backend failed to start" >&2
+          echo "backend failed to start ❌" >&2
+          tail -n 200 server.log || true
           exit 1
 
-      - name: Run API E2E
-        run: bash scripts/api-e2e.sh
+      - name: Run api:e2e
+        if: ${{ success() }}
+        run: |
+          bash scripts/api-e2e.sh
 
       - name: Upload server.log (always)
         if: always()
@@ -55,3 +67,11 @@ jobs:
         with:
           name: server-log
           path: server.log
+          if-no-files-found: warn
+
+      - name: Kill backend (always)
+        if: always()
+        run: |
+          if [ -f server.pid ]; then
+            kill "$(cat server.pid)" 2>/dev/null || true
+          fi
