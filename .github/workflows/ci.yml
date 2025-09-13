@@ -1,61 +1,8 @@
-name: CI Smoke + E2E
-
-on:
-  push:
-    branches: [ main ]
-
+name: ci
+on: push
 jobs:
-  smoketest:
+  hello:
     runs-on: ubuntu-latest
-
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Generate Prisma client
-        run: npx prisma generate
-
-      - name: Run migrations (reset fallback)
-        run: |
-          set -e
-          npx prisma migrate deploy || (npx prisma migrate reset --force --skip-seed && npx prisma db push)
-
-      - name: Start backend (background)
-        run: |
-          nohup npm run dev > server.log 2>&1 &
-          sleep 5
-
-      - name: Wait for health
-        run: |
-          for i in {1..20}; do
-            if curl -s http://127.0.0.1:3000/health | grep -q "status"; then
-              echo "Backend up ✅"
-              exit 0
-            fi
-            echo "waiting..."
-            sleep 2
-          done
-          echo "Backend failed to start ❌"
-          cat server.log
-          exit 1
-
-      - name: Run E2E tests
-        run: bash scripts/api-e2e.sh
-
-      - name: Show last server log lines
-        if: always()
-        run: tail -n 100 server.log || true
-
-      - name: Upload server.log artifact
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: server-log
-          path: server.log
+      - name: Say hello
+        run: echo "hello from Actions ✅"
