@@ -1,0 +1,109 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# ==== Config ====
+BASE="${BASE:-http://127.0.0.1:3000}"
+EMAIL="${EMAIL:-test@example.com}"
+PASSWORD="${PASSWORD:-secret123}"
+HANDLE="${HANDLE:-@nuritest}"
+PLATFORM="${PLATFORM:-INSTAGRAM}"  # INSTAGRAM | TIKTOK | YOUTUBE (entspr. deinem Prisma-Enum)
+
+have_jq() { command -v jq >/dev/null 2>&1; }
+
+json_get_id() {
+  if have_jq; then jq -r '.id' ; else grep -o '"id":[0-9]\+' | head -1 | grep -o '[0-9]\+' ; fi
+}
+
+json_get_token() {
+  if have_jq; then jq -r '.token' ; else sed -n 's/.*"token":"\([^"]*\)".*/\1/p' ; fi
+}
+
+api_auth() {
+  # $1=METHOD  $2=PATH  [$3=JSON_BODY]
+  local method="$1" path="$2" body="${3:-}"
+  if [[ -n "$body" ]]; then
+    curl -sS -X "$method" "$BASE$path" \
+      -H "Authorization: Bearer $TOKEN" \
+      -H "Content-Type: application/json" \
+      -d "$body"
+  else
+    curl -sS -X "$method" "$BASE$path" \
+      -H "Authorization: Bearer $TOKEN" \
+      -H "Content-Type: application/json"
+  fi
+}
+
+section() { printf "\n\033[1m=== %s ===\033[0m\n" "$*"; }
+ok()      { printf "✅ %s\n" "$*"; }
+note()    { printf "• %s\n" "$*"; }
+
+# ==== 0) Health ====
+section "Health check"
+health=$(curl -sS "$BASE/health")
+echo "$health" | grep -q '"status":"ok"' && ok "Backend reachable ($BASE)" || { echo "$health"; exit 1; }
+
+# ==== 1) Login ====
+section "Login"
+login_json=$(curl -sS -X POST "$BASE/api/login" \
+  -H "Content-Type: application/json" \
+  -d "{\"email\":\"$EMAIL\",\"password\":\"$PASSWORD\"}")
+TOKEN=$(echo "$login_json" | json_get_token)
+[[ -n "$TOKEN" && ${#TOKEN} -gt 20 ]] || { echo "Login failed:"; echo "$login_json"; exit 1; }
+note "token length: ${#TOKEN}"
+me_json=$(api_auth GET /api/me)
+ok "me: $me_json"
+
+# ==== 2) Projekt anlegen ====
+section "Projekt anlegen"
+proj_json=$(api_auth POST /api/projects \
+  "{\"name\":\"Demo Project\",\"description\":\"mein erstes Projekt\"}")
+PROJECT_ID=$(echo "$proj_json" | json_get_id)
+[[ -n "$PROJECT_ID" ]] || { echo "Project create failed:"; echo "$proj_json"; exit 1; }
+ok "PROJECT_ID=$PROJECT_ID"
+
+# ==== 3) Social Account anlegen ====
+section "Account anlegen"
+acct_json=$(api_auth POST "/api/projects/$PROJECT_ID/accounts" \
+  "{\"platform\":\"$PLATFORM\",\"handle\":\"$HANDLE\"}")
+ACCOUNT_ID=$(echo "$acct_json" | json_get_id)
+[[ -n "$ACCOUNT_ID" ]] || { echo "Account create failed:"; echo "$acct_json"; exit 1; }
+ok "ACCOUNT_ID=$ACCOUNT_ID"
+
+# ==== 4) Post anlegen (Draft) ====
+section "Post anlegen"
+post_json=$(api_auth POST "/api/projects/$PROJECT_ID/posts" \
+  "{\"caption\":\"hello world 🚀\",\"accountIds\":[$ACCOUNT_ID],\"status\":\"DRAFT\"}")
+POST_ID=$(echo "$post_json" | json_get_id)
+[[ -n "$POST_ID" ]] || { echo "Post create failed:"; echo "$post_json"; exit 1; }
+ok "POST_ID=$POST_ID"
+
+# ==== 5) Post updaten ====
+section "Post updaten"
+upd_json=$(api_auth PATCH "/api/projects/$PROJECT_ID/posts/$POST_ID" \
+  "{\"caption\":\"updated ✍️\"}")
+ok "updated: $upd_json"
+
+# ==== 6) Auflisten (Kontrolle) ====
+section "Listen: projects / accounts / posts"
+proj_list=$(api_auth GET /api/projects)
+acct_list=$(api_auth GET "/api/projects/$PROJECT_ID/accounts")
+post_list=$(api_auth GET "/api/projects/$PROJECT_ID/posts")
+note "projects: $proj_list"
+note "accounts: $acct_list"
+note "posts: $post_list"
+
+# ==== 7) Cleanup in richtiger Reihenfolge ====
+section "Cleanup (post -> account -> project)"
+api_auth DELETE "/api/projects/$PROJECT_ID/posts/$POST_ID" >/dev/null || true
+api_auth DELETE "/api/projects/$PROJECT_ID/accounts/$ACCOUNT_ID" >/dev/null || true
+api_auth DELETE "/api/projects/$PROJECT_ID" >/dev/null || true
+ok "deleted post/account/project"
+
+# ==== 8) Verifizieren, dass alles weg ist ====
+section "Verifikation"
+acc_check=$(api_auth GET "/api/projects/$PROJECT_ID/accounts" || true)
+post_check=$(api_auth GET "/api/projects/$PROJECT_ID/posts" || true)
+echo "$acc_check"  | grep -q '"error":"not_found"' && ok "accounts cleared" || echo "$acc_check"
+echo "$post_check" | grep -q '"error":"not_found"' && ok "posts cleared"    || echo "$post_check"
+
+section "Fertig 🎉"

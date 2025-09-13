@@ -1,95 +1,119 @@
 #!/usr/bin/env bash
 set -euo pipefail
-IFS=$'\n\t'
 
-BASE="http://127.0.0.1:3000"
-EMAIL="bob2@example.com"
-PASS="secret6"
+# ===== Config =====
+BASE="${BASE:-http://127.0.0.1:3000}"
+EMAIL="${EMAIL:-test@example.com}"
+PASSWORD="${PASSWORD:-secret123}"
+NAME="${NAME:-Test User}"
 
-log() { printf "\n=== %s ===\n" "$*"; }
+# ===== Helpers =====
+need() { command -v "$1" >/dev/null 2>&1 || { echo "❌ '$1' nicht gefunden"; exit 1; }; }
+jq_s() { jq -r "$1" 2>/dev/null || true; }
 
-# 0) Health
-log "Healthcheck"
-curl -sS "$BASE/health" | sed 's/},{/},\n{/g'; echo
+need curl
+need jq
 
-# 1) Login
-log "Login"
-TOKEN=$(curl -sS -X POST "$BASE/api/login" \
-  -H "Content-Type: application/json" \
-  -d "{\"email\":\"$EMAIL\",\"password\":\"$PASS\"}" \
-  | sed -E 's/.*"token":"?([^"]+)".*/\1/')
-if [[ -z "${TOKEN:-}" || "$TOKEN" == "null" ]]; then
-  echo "Login fehlgeschlagen – check Email/Passwort"; exit 1
+say() { echo -e "\n—— $*"; }
+
+# ===== 0) Healthcheck =====
+say "Healthcheck: $BASE/health"
+if ! curl -fsS "$BASE/health" | jq '.status' | grep -q '"ok"'; then
+  echo "❌ Backend nicht erreichbar oder /health != ok"
+  exit 1
 fi
-echo "TOKEN_LEN=${#TOKEN}"
+echo "✅ Backend OK"
 
-# 2) Projekt anlegen
-log "Projekt anlegen"
-PROJECT_JSON=$(curl -sS -X POST "$BASE/api/projects" \
-  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
-  -d '{"name":"Smoke Project","description":"Demo"}')
-echo "$PROJECT_JSON"
-PROJECT_ID=$(echo "$PROJECT_JSON" | sed -E 's/.*"id":([0-9]+).*/\1/')
-echo "PROJECT_ID=$PROJECT_ID"
+# ===== 1) Login (oder Register → Login) =====
+say "Login… ($EMAIL)"
+TOKEN="$(curl -fsS -X POST "$BASE/api/login" \
+  -H "Content-Type: application/json" \
+  -d "{\"email\":\"$EMAIL\",\"password\":\"$PASSWORD\"}" | jq_s '.token // empty')"
 
-# 3) Account anlegen
-log "Account anlegen"
-ACCOUNT_JSON=$(curl -sS -X POST "$BASE/api/projects/$PROJECT_ID/accounts" \
-  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
-  -d '{"platform":"TIKTOK","handle":"demo_handle"}')
-echo "$ACCOUNT_JSON"
-ACCOUNT_ID=$(echo "$ACCOUNT_JSON" | sed -E 's/.*"id":([0-9]+).*/\1/')
-echo "ACCOUNT_ID=$ACCOUNT_ID"
+if [[ -z "$TOKEN" ]]; then
+  say "User nicht vorhanden? Registriere…"
+  curl -fsS -X POST "$BASE/api/register" \
+    -H "Content-Type: application/json" \
+    -d "{\"email\":\"$EMAIL\",\"password\":\"$PASSWORD\",\"name\":\"$NAME\"}" >/dev/null
 
-# 4) Post anlegen (Draft)
-log "Post (Draft) anlegen"
-POST_JSON=$(curl -sS -X POST "$BASE/api/projects/$PROJECT_ID/posts" \
-  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
-  -d "{\"platform\":\"TIKTOK\",\"caption\":\"Hello world\",\"accountIds\":[${ACCOUNT_ID}]}");
-echo "$POST_JSON"
-POST_ID=$(echo "$POST_JSON" | sed -E 's/.*"id":([0-9]+).*/\1/')
-echo "POST_ID=$POST_ID"
+  say "Login (zweiter Versuch)…"
+  TOKEN="$(curl -fsS -X POST "$BASE/api/login" \
+    -H "Content-Type: application/json" \
+    -d "{\"email\":\"$EMAIL\",\"password\":\"$PASSWORD\"}" | jq_s '.token // empty')"
+fi
 
-# 5) Post updaten (Caption)
-log "Post Caption updaten"
-curl -sS -X PATCH "$BASE/api/projects/$PROJECT_ID/posts/$POST_ID" \
-  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
-  -d '{"caption":"Updated caption","status":"DRAFT"}' | sed 's/},{/},\n{/g'; echo
+if [[ -z "$TOKEN" ]]; then
+  echo "❌ Login fehlgeschlagen"
+  exit 1
+fi
+echo "✅ Login OK (Tokenlen: ${#TOKEN})"
 
-# 6) Post schedulen (+15min)
-log "Post schedulen (+15min)"
-WHEN=$(python3 - <<'PY'
-from datetime import datetime, timedelta, timezone
-print((datetime.now(timezone.utc)+timedelta(minutes=15)).strftime("%Y-%m-%dT%H:%M:%SZ"))
-PY
-)
-echo "WHEN=$WHEN"
-curl -sS -X PATCH "$BASE/api/projects/$PROJECT_ID/posts/$POST_ID" \
-  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
-  -d "{\"status\":\"SCHEDULED\",\"scheduledAt\":\"$WHEN\"}" | sed 's/},{/},\n{/g'; echo
+# ===== 2) Projekt anlegen =====
+say "Projekt anlegen…"
+PROJECT_ID="$(curl -fsS -X POST "$BASE/api/projects" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Demo Project","description":"smoketest"}' | jq_s '.id')"
 
-# 7) Media setzen (optional)
-log "Media URL setzen"
-curl -sS -X PATCH "$BASE/api/projects/$PROJECT_ID/posts/$POST_ID" \
-  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
-  -d '{"mediaUrl":"https://example.com/demo.jpg"}' | sed 's/},{/},\n{/g'; echo
+if [[ -z "$PROJECT_ID" ]]; then
+  echo "❌ Konnte Projekt-ID nicht lesen"
+  exit 1
+fi
+echo "✅ Projekt ID: $PROJECT_ID"
 
-# 8) Übersicht
-log "Posts im Projekt listen"
-curl -sS "$BASE/api/projects/$PROJECT_ID/posts" \
-  -H "Authorization: Bearer $TOKEN" | sed 's/},{/},\n{/g'; echo
+# ===== 3) Account anlegen =====
+say "Account anlegen…"
+ACCOUNT_ID="$(curl -fsS -X POST "$BASE/api/projects/$PROJECT_ID/accounts" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"platform":"INSTAGRAM","handle":"@nuritest"}' | jq_s '.id')"
 
-# 9) Cleanup (Post, Account, Projekt löschen)
-log "Cleanup: Post löschen"
-curl -sS -X DELETE "$BASE/api/projects/$PROJECT_ID/posts/$POST_ID" \
-  -H "Authorization: Bearer $TOKEN"; echo
+if [[ -z "$ACCOUNT_ID" ]]; then
+  echo "❌ Konnte Account-ID nicht lesen"
+  exit 1
+fi
+echo "✅ Account ID: $ACCOUNT_ID"
 
-log "Cleanup: Account löschen"
-curl -sS -X DELETE "$BASE/api/projects/$PROJECT_ID/accounts/$ACCOUNT_ID" \
-  -H "Authorization: Bearer $TOKEN"; echo
+# ===== 4) Post anlegen =====
+say "Post anlegen…"
+POST_ID="$(curl -fsS -X POST "$BASE/api/projects/$PROJECT_ID/posts" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d "{\"caption\":\"mein erster post ✨\",\"status\":\"DRAFT\",\"accountIds\":[$ACCOUNT_ID]}" | jq_s '.id')"
 
-log "Cleanup: Projekt löschen"
-curl -sS -X DELETE "$BASE/api/projects/$PROJECT_ID" \
-  -H "Authorization: Bearer $TOKEN"; echo
+if [[ -z "$POST_ID" ]]; then
+  echo "❌ Konnte Post-ID nicht lesen"
+  exit 1
+fi
+echo "✅ Post ID: $POST_ID"
 
-log "Fertig ✅"
+# ===== 5) Prüfen (GET) =====
+say "GET /api/projects/$PROJECT_ID"
+PROJ_JSON="$(curl -fsS -H "Authorization: Bearer $TOKEN" "$BASE/api/projects/$PROJECT_ID")"
+echo "$PROJ_JSON" | jq '.' >/dev/null || true
+
+# minimale Checks
+HAS_ACC="$(echo "$PROJ_JSON" | jq -r '.accounts | length')"
+HAS_POSTS="$(echo "$PROJ_JSON" | jq -r '.posts | length')"
+if [[ "$HAS_ACC" -lt 1 || "$HAS_POSTS" -lt 1 ]]; then
+  echo "❌ Projekt enthält nicht die erwarteten Ressourcen (accounts=$HAS_ACC, posts=$HAS_POSTS)"
+  exit 1
+fi
+echo "✅ Projekt enthält Account & Post"
+
+# ===== 6) Aufräumen (Delete in richtiger Reihenfolge) =====
+say "Löschen: Post → Account → Projekt"
+curl -fsS -X DELETE "$BASE/api/projects/$PROJECT_ID/posts/$POST_ID" -H "Authorization: Bearer $TOKEN" >/dev/null
+curl -fsS -X DELETE "$BASE/api/projects/$PROJECT_ID/accounts/$ACCOUNT_ID" -H "Authorization: Bearer $TOKEN" >/dev/null
+curl -fsS -X DELETE "$BASE/api/projects/$PROJECT_ID" -H "Authorization: Bearer $TOKEN" >/dev/null
+echo "✅ Alles gelöscht"
+
+# ===== 7) Final check =====
+say "Finaler Check (Projekt sollte weg sein)…"
+NOT_FOUND="$(curl -s -H "Authorization: Bearer $TOKEN" "$BASE/api/projects/$PROJECT_ID" | jq -r '.error // empty')"
+if [[ "$NOT_FOUND" != "project_not_found" ]]; then
+  echo "❌ Projekt existiert noch (oder unerwartete Antwort)"
+  exit 1
+fi
+
+echo -e "\n🎉 SMOKETEST PASS\n"
