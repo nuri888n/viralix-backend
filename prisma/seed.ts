@@ -1,4 +1,4 @@
-import { PrismaClient, PostStatus } from '@prisma/client';
+import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
@@ -75,7 +75,7 @@ async function main() {
       data: {
         projectId: project.id,
         caption,
-        status: PostStatus.DRAFT, // falls dein Enum anders heißt → anpassen
+        status: 'DRAFT', // falls dein Enum anders heißt → anpassen
         accountIds: [account.id] as any, // bei Json-Feld
       },
     }));
