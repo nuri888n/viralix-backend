@@ -1,5 +1,5 @@
 gh run list \
-  --repo nuri88n/viralix-backend \
+  --repo nuri888n/viralix-backend \
   --branch main \
   --workflow "CI Smoke + E2E" \
   --json databaseId,headSha,status,conclusion,createdAt \
