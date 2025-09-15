@@ -1,13 +1,14 @@
 // eslint.config.mjs
 import globals from "globals";
-import tseslint from "typescript-eslint";
+import tseslint from "@typescript-eslint/eslint-plugin";
+import tsParser from "@typescript-eslint/parser";
 
 export default [
   {
     files: ["**/*.ts"],
     ignores: ["node_modules/**", "dist/**"],
     languageOptions: {
-      parser: tseslint.parser,
+      parser: tsParser,
       parserOptions: {
         ecmaVersion: "latest",
       },
@@ -19,7 +20,7 @@ export default [
       },
     },
     plugins: {
-      "@typescript-eslint": tseslint.plugin,
+      "@typescript-eslint": tseslint,
     },
     rules: {
       // Basis-Regel aus @eslint/js deaktivieren → sonst doppelte Fehler
