@@ -38,3 +38,6 @@ temp/
 TOKEN
 anthropic.claude-code-1.0.113.vsix
 zeigt
+
+# Backup code (not needed for deployment)
+backup/
