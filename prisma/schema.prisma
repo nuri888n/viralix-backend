@@ -1,81 +1,53 @@
 // prisma/schema.prisma
-
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
   provider = "sqlite"
-  url      = "file:./prisma/dev.db"
+  url      = env("DATABASE_URL") // z.B. "file:./dev.db"
 }
 
 model User {
+  id           Int       @id @default(autoincrement())
+  email        String    @unique
+  passwordHash String
+  accounts     Account[]
+  projects     Project[]
+  createdAt    DateTime  @default(now())
+}
+
+model Account {
   id        Int       @id @default(autoincrement())
-  email     String    @unique
-  name      String?
-  username  String?   @unique
-  password  String?
+  handle    String    @unique
+  platform  String
+  userId    Int
+  user      User      @relation(fields: [userId], references: [id])
+
+  // ⚠️ WICHTIG: gleicher Relation-Name wie in Post.accounts
+  posts     Post[]    @relation("PostAccounts")
+
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
-
-  projects  Project[]
 }
 
 model Project {
   id        Int       @id @default(autoincrement())
-  userId    Int
   name      String
-  description String?
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-
+  userId    Int
   user      User      @relation(fields: [userId], references: [id])
-  accounts  SocialAccount[]
   posts     Post[]
-
-  @@index([userId])
-}
-
-model SocialAccount {
-  id        Int      @id @default(autoincrement())
-  projectId Int
-  platform  Platform
-  handle    String
-  createdAt DateTime @default(now())
-
-  project   Project  @relation(fields: [projectId], references: [id])
-
-  @@index([projectId])
+  createdAt DateTime  @default(now())
 }
 
 model Post {
-  id          Int       @id @default(autoincrement())
-  projectId   Int
-  caption     String
-  mediaUrl    String?
-  scheduledAt DateTime?
-  status      PostStatus @default(DRAFT)
-  publishedAt DateTime?
-  // JSON-Liste der verknüpften Account-IDs (vereinfachtes Mapping)
-  accountIds  Json
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  id         Int       @id @default(autoincrement())
+  caption    String?
+  projectId  Int
+  project    Project   @relation(fields: [projectId], references: [id])
 
-  project     Project   @relation(fields: [projectId], references: [id])
+  // ⚠️ Gegenfeld der M:N-Relation — gleicher Name
+  accounts   Account[] @relation("PostAccounts")
 
-  @@index([projectId])
-  @@index([status, scheduledAt])
-}
-
-enum Platform {
-  INSTAGRAM
-  TIKTOK
-  YOUTUBE
-  TWITTER
-}
-
-enum PostStatus {
-  DRAFT
-  SCHEDULED
-  PUBLISHED
+  createdAt  DateTime  @default(now())
 }

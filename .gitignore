@@ -1,5 +1,40 @@
-node_modules
-# Keep environment variables out of version control
+# Environment variables
 .env
+.env.local
+.env.production
+.env.staging
 
-/src/generated/prisma
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Build outputs
+dist/
+build/
+.next/
+
+# Database
+*.db
+*.sqlite
+prisma/dev.db
+
+# Logs
+*.log
+logs/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temporary files
+tmp/
+temp/
+TOKEN
+anthropic.claude-code-1.0.113.vsix
+zeigt

@@ -1,23 +1,31 @@
-import { Request, Response, NextFunction } from 'express';
-import jwt from 'jsonwebtoken';
+import type { Request, Response, NextFunction } from "express";
+import jwt, { JwtPayload } from "jsonwebtoken";
 
-const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret';
+// in .env: JWT_SECRET=dev-secret-change-me
+const JWT_SECRET = process.env.JWT_SECRET || "dev-secret-change-me";
 
-export interface AuthRequest extends Request {
-  user?: { id: number };
+export interface AuthedRequest extends Request {
+  user?: { userId: number; email: string };
 }
 
-export function authenticate(req: AuthRequest, res: Response, next: NextFunction) {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader?.split(' ')[1];
-
-  if (!token) return res.status(401).json({ error: 'No token provided' });
-
+// Named export, damit der Import { requireAuth } funktioniert
+export const requireAuth = (req: AuthedRequest, res: Response, next: NextFunction) => {
   try {
-    const decoded = jwt.verify(token, JWT_SECRET) as { id: number };
-    req.user = { id: decoded.id };
+    const header = req.headers.authorization || "";
+    const token = header.startsWith("Bearer ") ? header.slice(7) : "";
+    if (!token) return res.status(401).json({ error: "Missing token" });
+
+    const decoded = jwt.verify(token, JWT_SECRET) as JwtPayload & { userId: number; email: string };
+    if (!decoded?.userId) return res.status(401).json({ error: "Invalid token" });
+
+    req.user = { userId: Number(decoded.userId), email: String(decoded.email || "") };
     next();
-  } catch {
-    return res.status(403).json({ error: 'Invalid token' });
+  } catch (e: any) {
+    return res.status(401).json({ error: "Unauthorized", detail: e?.message });
   }
+};
+
+// Dev-Helfer: Token generieren
+export function signDebugToken(userId: number, email = "test@viralix.dev") {
+  return jwt.sign({ userId, email }, JWT_SECRET, { expiresIn: "7d" });
 }

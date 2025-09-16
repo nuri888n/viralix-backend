@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <title>Viralix API Tester</title>
+  <style>
+    body { font: 14px/1.4 system-ui, -apple-system, Segoe UI, Roboto, sans-serif; padding: 24px; max-width: 900px; margin: 0 auto; }
+    input, button, select, textarea { padding: 8px 10px; margin: 4px 0; }
+    .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+    .card { border: 1px solid #ddd; border-radius: 8px; padding: 16px; margin: 12px 0; }
+    pre { background: #f7f7f7; padding: 12px; border-radius: 6px; overflow:auto; }
+    label { font-weight: 600; margin-right: 4px; }
+  </style>
+</head>
+<body>
+  <h1>Viralix API Tester</h1>
+
+  <div class="card">
+    <h3>Authentication</h3>
+    <div class="row">
+      <label for="base">BASE:</label>
+      <input id="base" size="30" value="http://localhost:3000/api" />
+    </div>
+    <div class="row">
+      <label for="email">Email:</label>
+      <input id="email" value="test@viralix.dev" />
+      <label for="password">Password:</label>
+      <input id="password" type="password" value="test123" />
+      <button id="btnLogin">LOGIN</button>
+      <button id="btnRegister">REGISTER</button>
+    </div>
+    <div class="row">
+      <label for="token">Token:</label>
+      <input id="token" size="60" placeholder="Bearer Token erscheint hier…" />
+      <button id="btnMe">WHO AM I</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Projects</h3>
+    <div class="row">
+      <label>Name:</label><input id="projectName" value="Test Project" />
+      <button id="btnProjectCreate">CREATE</button>
+      <button id="btnProjects">LIST</button>
+    </div>
+    <div class="row">
+      <label>Project ID:</label><input id="projectId" type="number" style="width:80px" />
+      <label>New Name:</label><input id="projectNewName" value="Updated Project" />
+      <button id="btnProjectUpdate">UPDATE</button>
+      <button id="btnProjectDelete">DELETE</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Accounts</h3>
+    <div class="row">
+      <label>Handle:</label><input id="accHandle" value="@test_account" />
+      <label>Platform:</label>
+      <select id="accPlatform">
+        <option value="INSTAGRAM">INSTAGRAM</option>
+        <option value="TIKTOK">TIKTOK</option>
+        <option value="YOUTUBE">YOUTUBE</option>
+        <option value="TWITTER">TWITTER</option>
+      </select>
+      <button id="btnAccCreate">CREATE</button>
+      <button id="btnAccList">LIST</button>
+    </div>
+    <div class="row">
+      <label>Account ID:</label><input id="accId" type="number" style="width:100px" />
+      <label>New Handle:</label><input id="accNewHandle" value="@updated_account" />
+      <button id="btnAccUpdate">UPDATE</button>
+      <button id="btnAccDelete">DELETE</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Posts</h3>
+    <div class="row">
+      <label>Project ID:</label><input id="postProjectId" type="number" value="1" style="width:80px" />
+      <label>Caption:</label><input id="postCaption" value="Test post caption" size="30" />
+      <button id="btnPostCreate">CREATE</button>
+      <button id="btnPostList">LIST</button>
+    </div>
+    <div class="row">
+      <label>Post ID:</label><input id="postId" type="number" style="width:100px" />
+      <label>New Caption:</label><input id="postNewCaption" value="Updated caption" size="30" />
+      <button id="btnPostUpdate">UPDATE</button>
+      <button id="btnPostDelete">DELETE</button>
+    </div>
+    <div class="row">
+      <label>Link Accounts to Post:</label>
+      <label>Post ID:</label><input id="linkPostId" type="number" style="width:100px" />
+      <label>Account IDs (comma-separated):</label><input id="linkAccountIds" value="1,2" size="12" />
+      <label>Mode:</label>
+      <select id="linkMode">
+        <option value="append">append</option>
+        <option value="replace">replace</option>
+      </select>
+      <button id="btnLinkAccounts">LINK</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Tools & AI</h3>
+    <div class="row">
+      <label>Topic:</label><input id="captionTopic" value="morning coffee" />
+      <label>Tone:</label>
+      <select id="captionTone">
+        <option value="neutral">neutral</option>
+        <option value="fun">fun</option>
+        <option value="serious">serious</option>
+      </select>
+      <button id="btnCaption">GENERATE CAPTION</button>
+    </div>
+    <div class="row">
+      <label>AI Goal:</label><input id="aiGoal" value="Create a post about healthy breakfast" size="40" />
+      <button id="btnAIPlan">ENQUEUE AI PLAN</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Response</h3>
+    <pre id="out">(noch nichts)</pre>
+  </div>
+
+<script>
+  const $ = (id) => document.getElementById(id);
+  const out = (data) => { $('out').textContent = typeof data === 'string' ? data : JSON.stringify(data, null, 2); };
+  const auth = () => ({ 'Authorization': 'Bearer ' + ($('token').value || '') });
+
+  async function req(path, opts = {}) {
+    const base = $('base').value.replace(/\/+$/, '');
+    const res = await fetch(base + path, {
+      ...opts,
+      headers: { 'Content-Type': 'application/json', ...(opts.headers || {}), ...auth() }
+    });
+    const text = await res.text();
+    try { return JSON.parse(text); } catch { return text; }
+  }
+
+  // Authentication
+  $('btnLogin').onclick = async () => {
+    const body = { email: $('email').value, password: $('password').value };
+    const data = await req('/auth/login', { method: 'POST', body: JSON.stringify(body) });
+    if (data.token) $('token').value = data.token;
+    out(data);
+  };
+
+  $('btnRegister').onclick = async () => {
+    const body = { email: $('email').value, password: $('password').value };
+    const data = await req('/auth/register', { method: 'POST', body: JSON.stringify(body) });
+    if (data.token) $('token').value = data.token;
+    out(data);
+  };
+
+  $('btnMe').onclick = async () => out(await req('/auth/me'));
+
+  // Projects
+  $('btnProjectCreate').onclick = async () => {
+    const body = { name: $('projectName').value };
+    out(await req('/project', { method: 'POST', body: JSON.stringify(body) }));
+  };
+  $('btnProjects').onclick = async () => out(await req('/project'));
+  $('btnProjectUpdate').onclick = async () => {
+    const id = Number($('projectId').value);
+    const body = { name: $('projectNewName').value };
+    out(await req(`/project/${id}`, { method: 'PUT', body: JSON.stringify(body) }));
+  };
+  $('btnProjectDelete').onclick = async () => {
+    const id = Number($('projectId').value);
+    out(await req(`/project/${id}`, { method: 'DELETE' }));
+  };
+
+  // Accounts
+  $('btnAccCreate').onclick = async () => {
+    const body = {
+      handle: $('accHandle').value,
+      platform: $('accPlatform').value
+    };
+    out(await req('/account', { method: 'POST', body: JSON.stringify(body) }));
+  };
+  $('btnAccList').onclick = async () => out(await req('/account'));
+  $('btnAccUpdate').onclick = async () => {
+    const id = Number($('accId').value);
+    const body = { handle: $('accNewHandle').value };
+    out(await req(`/account/${id}`, { method: 'PUT', body: JSON.stringify(body) }));
+  };
+  $('btnAccDelete').onclick = async () => {
+    const id = Number($('accId').value);
+    out(await req(`/account/${id}`, { method: 'DELETE' }));
+  };
+
+  // Posts
+  $('btnPostCreate').onclick = async () => {
+    const body = {
+      caption: $('postCaption').value,
+      projectId: Number($('postProjectId').value)
+    };
+    out(await req('/post', { method: 'POST', body: JSON.stringify(body) }));
+  };
+  $('btnPostList').onclick = async () => out(await req('/post'));
+  $('btnPostUpdate').onclick = async () => {
+    const id = Number($('postId').value);
+    const body = { caption: $('postNewCaption').value };
+    out(await req(`/post/${id}`, { method: 'PUT', body: JSON.stringify(body) }));
+  };
+  $('btnPostDelete').onclick = async () => {
+    const id = Number($('postId').value);
+    out(await req(`/post/${id}`, { method: 'DELETE' }));
+  };
+
+  // Link Accounts ↔ Post (M:N)
+  $('btnLinkAccounts').onclick = async () => {
+    const id = Number($('linkPostId').value);
+    const ids = $('linkAccountIds').value.split(',').map(s => Number(s.trim())).filter(Boolean);
+    const mode = $('linkMode').value;
+    const body = { accountIds: ids, mode };
+    out(await req(`/post/${id}/accounts`, { method: 'POST', body: JSON.stringify(body) }));
+  };
+
+  // Tools & AI
+  $('btnCaption').onclick = async () => {
+    const body = { topic: $('captionTopic').value, tone: $('captionTone').value };
+    out(await req('/tools/captions', { method: 'POST', body: JSON.stringify(body) }));
+  };
+
+  $('btnAIPlan').onclick = async () => {
+    const body = { goal: $('aiGoal').value };
+    out(await req('/ai/plan/enqueue', { method: 'POST', body: JSON.stringify(body) }));
+  };
+</script>
+</body>
+</html>
