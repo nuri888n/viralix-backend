@@ -1,124 +1,68 @@
-// FILE: src/index.ts
 import "dotenv/config";
-import express, { Request, Response, NextFunction } from "express";
+import express, { Request, Response } from "express";
 import cors from "cors";
-import cookieParser from "cookie-parser";
-import jwt from "jsonwebtoken";
-import { PrismaClient } from "@prisma/client";
 
-// ✅ BullMQ-Queue NUR für Job-Inspection (kein Import aus ./worker -> vermeidet Zyklen)
-import { Queue } from "bullmq";
-import IORedis from "ioredis";
-
-// ✅ Enqueue-Routen (POST /api/ai/plan/enqueue) aus Step 1
-import aiRoutes from "./routes/ai";
-import payRoutes from "./routes/pay";
-import toolsRoutes from "./routes/tools";
-import testRoutes from "./routes/test";
-
-// ✅ Core API Routen
-import authRoutes from "./routes/auth";
-import projectRoutes from "./routes/project";
-import accountRoutes from "./routes/account";
-import postRoutes from "./routes/post";
-
-// ✅ Auth Middleware
-import { requireAuth, AuthedRequest } from "./middleware/auth";
-
-// --- Init ---
-const prisma = new PrismaClient();
 const app = express();
+const PORT = process.env.PORT || 3000;
 
-// --- CORS ---
-const ORIGIN =
-  process.env.PUBLIC_ORIGIN ||
-  process.env.FRONTEND_ORIGIN ||
-  "http://localhost:5173";
+// Middleware
+app.use(cors({
+  origin: process.env.FRONTEND_ORIGIN || "http://localhost:5173",
+  credentials: true,
+}));
 
-app.use(
-  cors({
-    origin: ORIGIN,
-    credentials: true,
-  })
-);
-
-// --- Middleware ---
 app.use(express.json({ limit: "2mb" }));
-app.use(cookieParser());
 
-// --- BullMQ Verbindung nur für Job-Reads (agentQueue) ---
-const REDIS_URL = process.env.REDIS_URL ?? "redis://127.0.0.1:6379";
-const redis = new IORedis(REDIS_URL, { maxRetriesPerRequest: null });
-const agentQueueReader = new Queue("agentQueue", { connection: redis });
-
-// --- Auth Middleware ist jetzt aus ./middleware/auth importiert ---
-
-// --- Debug Route für Token (unter /api) ---
-app.get("/api/debug/token/:id", async (req: Request, res: Response) => {
-  const userId = Number(req.params.id);
-  const token = jwt.sign({ userId }, process.env.JWT_SECRET || "dev-secret", {
-    expiresIn: "1h",
-  });
-  res.json({ token });
+// Health check endpoint
+app.get("/health", (_req: Request, res: Response) => {
+  res.json({ status: "ok", timestamp: new Date().toISOString() });
 });
 
-// --- AI Planner (deine bestehende Route bleibt identisch) ---
-import { runPlanningAgent } from "./agents/aiPlanner";
-app.post("/ai/plan", requireAuth, async (req: AuthedRequest, res: Response) => {
-  const { goal, projectId } = req.body;
-  if (!goal || !projectId) {
-    return res.status(400).json({ error: "goal and projectId required" });
-  }
-  try {
-    const result = await runPlanningAgent(prisma, {
-      goal: String(goal),
-      projectId: Number(projectId),
-    });
-    res.json(result);
-  } catch (e: any) {
-    res.status(500).json({ error: e.message || "AI error" });
-  }
-});
-
-// --- Core API Routen ---
-app.use("/api/auth", authRoutes);
-app.use("/api/project", projectRoutes);
-app.use("/api/account", accountRoutes);
-app.use("/api/post", postRoutes);
-
-// --- Agent-Enqueue-Routen (damit /api/ai/plan/enqueue funktioniert) ---
-app.use("/api", aiRoutes);
-app.use("/api", payRoutes);
-app.use("/api", toolsRoutes);
-app.use("/api", testRoutes);
-
-// --- Jobs-Status (ohne ./worker zu importieren) ---
-app.get("/api/jobs/:id", async (req: Request, res: Response) => {
-  const job = await agentQueueReader.getJob(req.params.id);
-  if (!job) return res.status(404).json({ error: "not found" });
-  const state = await job.getState();
+// Basic API endpoint
+app.get("/api/status", (_req: Request, res: Response) => {
   res.json({
-    id: job.id,
-    state,
-    returnvalue: job.returnvalue,
-    failedReason: job.failedReason,
+    message: "Viralix Backend API is running",
+    version: "1.0.0",
+    environment: process.env.NODE_ENV || "development"
   });
 });
 
-// --- Health ---
-app.get("/health", (_req: Request, res: Response) => res.json({ ok: true }));
-
-console.log("Anthropic model:", process.env.ANTHROPIC_MODEL);
-
-// --- Start ---
-const port = Number(process.env.PORT) || 3000;
-app.listen(port, () => {
-  console.log(`🚀 Server ready at http://localhost:${port}`);
+// Root endpoint
+app.get("/", (_req: Request, res: Response) => {
+  res.json({
+    message: "Welcome to Viralix Backend",
+    endpoints: {
+      health: "/health",
+      status: "/api/status"
+    }
+  });
 });
 
-// --- Graceful Shutdown ---
-process.on("SIGINT", async () => {
-  await prisma.$disconnect().catch(() => {});
-  await redis.quit().catch(() => {});
+// 404 handler
+app.use("*", (_req: Request, res: Response) => {
+  res.status(404).json({ error: "Route not found" });
+});
+
+// Error handler
+app.use((error: Error, _req: Request, res: Response, _next: any) => {
+  console.error("Server Error:", error);
+  res.status(500).json({ error: "Internal server error" });
+});
+
+// Start server
+app.listen(PORT, () => {
+  console.log(`🚀 Viralix Backend running on port ${PORT}`);
+  console.log(`Environment: ${process.env.NODE_ENV || "development"}`);
+  console.log(`Health check: http://localhost:${PORT}/health`);
+});
+
+// Graceful shutdown
+process.on("SIGTERM", () => {
+  console.log("SIGTERM received, shutting down gracefully");
+  process.exit(0);
+});
+
+process.on("SIGINT", () => {
+  console.log("SIGINT received, shutting down gracefully");
   process.exit(0);
 });

@@ -1,56 +1,69 @@
-# Railway Deployment Guide
+# Railway Deployment Guide - Simplified Backend
 
-## Required Environment Variables
+## Quick Deployment
 
-Set these in your Railway dashboard:
+This is a **minimal Express.js backend** ready for Railway deployment.
+
+### Required Environment Variables
+
+Set only these in your Railway dashboard:
 
 ```bash
-# Database
-DATABASE_URL=your_production_postgresql_url
-
-# Anthropic AI
-ANTHROPIC_API_KEY=your_anthropic_api_key
-
-# Redis (for BullMQ)
-REDIS_URL=your_redis_url
-
-# JWT
-JWT_SECRET=your_secret_jwt_key
-
-# CORS
-PUBLIC_ORIGIN=https://your-frontend-domain.com
+# Required
+PORT=3000
 
 # Optional
-PORT=3000
-ANTHROPIC_MODEL=claude-3-5-sonnet-20241022
+NODE_ENV=production
+FRONTEND_ORIGIN=https://your-frontend-domain.com
 ```
 
-## Deployment Commands
+## What's included
 
-Railway will automatically run:
-1. `npm install` (install dependencies)
-2. `npm run build` (TypeScript compilation)
-3. `prisma generate` (via postinstall hook)
-4. `npm start` (start production server)
+✅ **Simple Express server** with CORS
+✅ **Health check endpoint**: `/health`
+✅ **Status endpoint**: `/api/status`
+✅ **TypeScript compilation** to `dist/`
+✅ **Error handling** and graceful shutdown
+✅ **No database dependencies**
+✅ **No external service dependencies**
 
-## Database Migration
+## Endpoints
 
-After deployment, run migrations manually:
+- `GET /` - Welcome message with endpoints list
+- `GET /health` - Health check for Railway monitoring
+- `GET /api/status` - API status information
+- `404` - All other routes return "Route not found"
+
+## Deployment Process
+
+Railway will automatically:
+1. `npm install` - Install dependencies (express, cors, dotenv)
+2. `npm run build` - Compile TypeScript (`src/index.ts` → `dist/index.js`)
+3. `npm start` - Start server (`node dist/index.js`)
+
+## Testing Locally
+
 ```bash
-railway run npm run db:migrate
+npm install
+npm run build
+npm start
 ```
 
-## Health Check
+Server runs on `http://localhost:3000`
 
-Railway will monitor: `https://your-app.railway.app/health`
+## Complex Features (Temporarily Removed)
 
-## Services
+All complex features have been moved to the `backup/` folder:
+- Prisma database integration
+- Authentication & JWT
+- AI agents and tools
+- Background job queues
+- Route handlers
 
-- **Web**: Main API server (port 3000)
-- **Worker**: Background job processor (BullMQ)
+These can be added back once the basic deployment is working.
 
-## Build Output
+## Next Steps
 
-- TypeScript compiles from `src/` to `dist/`
-- Main entry point: `dist/index.js`
-- Worker entry point: `dist/worker.js`
+1. Deploy to Railway and verify it works
+2. Test health check endpoint
+3. Gradually add back features from backup/
