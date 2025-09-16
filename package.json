@@ -8,6 +8,7 @@
     "worker": "tsx src/worker.ts",
     "dev:all": "npm-run-all -p dev worker",
     "build": "tsc -p tsconfig.json",
+    "postinstall": "prisma generate",
     "start": "node dist/index.js",
     "test": "jest",
     "typecheck": "tsc --noEmit",
