@@ -1,6 +1,6 @@
-import React, { useState, useRef } from 'react';
+import { useState, useRef, createElement } from 'react';
 import Layout from '../components/Layout';
-import { uploadContent, scheduleContent } from '../lib/api';
+import { uploadContent } from '../lib/api';
 import { Upload, Calendar, Image, Video, FileText } from 'lucide-react';
 
 export default function Content() {
@@ -121,7 +121,7 @@ export default function Content() {
                     />
                     {selectedFile ? (
                       <div className="flex items-center justify-center space-x-3">
-                        {React.createElement(getFileIcon(selectedFile), { className: "h-8 w-8 text-gray-400" })}
+                        {createElement(getFileIcon(selectedFile), { className: "h-8 w-8 text-gray-400" })}
                         <div className="text-left">
                           <p className="text-sm font-medium text-gray-900">{selectedFile.name}</p>
                           <p className="text-sm text-gray-500">{formatFileSize(selectedFile.size)}</p>
