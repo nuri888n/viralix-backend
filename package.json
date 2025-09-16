@@ -1,7 +1,7 @@
 {
   "name": "viralix-backend",
   "version": "1.0.0",
-  "main": "src/index.ts",
+  "main": "dist/index.js",
   "license": "MIT",
   "scripts": {
     "dev": "tsx watch src/index.ts",
@@ -10,6 +10,10 @@
     "build": "tsc -p tsconfig.json",
     "postinstall": "prisma generate",
     "start": "node dist/index.js",
+    "deploy": "npm run build && npm run db:migrate",
+    "db:migrate": "prisma migrate deploy",
+    "db:push": "prisma db push",
+    "db:generate": "prisma generate",
     "test": "jest",
     "typecheck": "tsc --noEmit",
     "seed": "tsx --tsconfig tsconfig.seed.json prisma/seed.ts",
@@ -27,6 +31,7 @@
     "express": "^4.21.2",
     "ioredis": "^5.7.0",
     "jsonwebtoken": "^9.0.2",
+    "npm-run-all": "^4.1.5",
     "qs": "^6.14.0",
     "zod": "^4.1.8"
   },
@@ -44,7 +49,6 @@
     "prisma": "^5.22.0",
     "tsx": "^4.20.5",
     "ts-jest": "^29.2.5",
-    "npm-run-all": "^4.1.5",
     "typescript": "^5.9.2"
   }
 }
