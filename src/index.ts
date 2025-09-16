@@ -27,13 +27,23 @@ app.get("/api/status", (_req: Request, res: Response) => {
   });
 });
 
+// Placeholder agents endpoint
+app.post("/api/agents", (_req: Request, res: Response) => {
+  res.json({
+    message: "Agents temporarily disabled",
+    status: "disabled",
+    note: "AI agent functionality will be added after basic deployment is working"
+  });
+});
+
 // Root endpoint
 app.get("/", (_req: Request, res: Response) => {
   res.json({
     message: "Welcome to Viralix Backend",
     endpoints: {
       health: "/health",
-      status: "/api/status"
+      status: "/api/status",
+      agents: "/api/agents (POST)"
     }
   });
 });
