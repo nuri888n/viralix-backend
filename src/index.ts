@@ -1,17 +1,25 @@
 import "dotenv/config";
 import express, { Request, Response } from "express";
 import cors from "cors";
+import authRoutes from "./routes/auth";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Middleware
 app.use(cors({
-  origin: process.env.FRONTEND_ORIGIN || "http://localhost:5173",
+  origin: [
+    "https://app.viralix.ai",
+    "http://localhost:5173",
+    ...(process.env.FRONTEND_ORIGIN ? [process.env.FRONTEND_ORIGIN] : [])
+  ],
   credentials: true,
 }));
 
 app.use(express.json({ limit: "2mb" }));
+
+// Routes
+app.use("/api/auth", authRoutes);
 
 // Health check endpoint
 app.get("/health", (_req: Request, res: Response) => {
@@ -43,7 +51,12 @@ app.get("/", (_req: Request, res: Response) => {
     endpoints: {
       health: "/health",
       status: "/api/status",
-      agents: "/api/agents (POST)"
+      agents: "/api/agents (POST)",
+      auth: {
+        register: "/api/auth/register (POST)",
+        login: "/api/auth/login (POST)",
+        me: "/api/auth/me (GET)"
+      }
     }
   });
 });
