@@ -21,6 +21,16 @@ app.use(express.json({ limit: "2mb" }));
 // Routes
 app.use("/api/auth", authRoutes);
 
+// Simple test route directly in index.ts
+app.get("/api/auth/test", (_req: Request, res: Response) => {
+  res.json({
+    message: "Test route works!",
+    status: "success",
+    timestamp: new Date().toISOString(),
+    note: "This route is defined directly in index.ts"
+  });
+});
+
 // Health check endpoint
 app.get("/health", (_req: Request, res: Response) => {
   res.json({ status: "ok", timestamp: new Date().toISOString() });
@@ -89,10 +99,10 @@ process.on("SIGINT", () => {
   console.log("SIGINT received, shutting down gracefully");
   process.exit(0);
 });
-app.get("/debug", (req, res) => {
-  res.json({ 
+app.get("/debug", (_req, res) => {
+  res.json({
     message: "Debug endpoint",
-    routes: app._router.stack.filter(r => r.route).map(r => r.route.path),
+    routes: app._router.stack.filter((r: any) => r.route).map((r: any) => r.route.path),
     timestamp: new Date().toISOString()
-
+  });
 });
