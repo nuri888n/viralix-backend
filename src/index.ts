@@ -89,3 +89,10 @@ process.on("SIGINT", () => {
   console.log("SIGINT received, shutting down gracefully");
   process.exit(0);
 });
+app.get("/debug", (req, res) => {
+  res.json({ 
+    message: "Debug endpoint",
+    routes: app._router.stack.filter(r => r.route).map(r => r.route.path),
+    timestamp: new Date().toISOString()
+
+});
