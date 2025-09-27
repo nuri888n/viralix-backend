@@ -1,15 +1,12 @@
 import { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
-import { getAccounts } from '../lib/api';
+import { getAccounts, type Account as ApiAccount } from '../lib/api';
 import { Plus, Instagram, Twitter, Facebook, Linkedin } from 'lucide-react';
 
-interface Account {
-  id: string;
-  platform: string;
-  username: string;
+type Account = ApiAccount & {
   isConnected: boolean;
   followers?: number;
-}
+};
 
 const platformIcons = {
   instagram: Instagram,
@@ -37,7 +34,12 @@ export default function Accounts() {
   const loadAccounts = async () => {
     try {
       const data = await getAccounts();
-      setAccounts(data as Account[] || []);
+      const normalized = (Array.isArray(data) ? data : []).map((account) => ({
+        ...account,
+        isConnected: account.status !== 'error',
+        followers: account.followerCount,
+      }));
+      setAccounts(normalized);
     } catch (err) {
       setError('Failed to load accounts');
       // For now, show mock data
@@ -48,6 +50,10 @@ export default function Accounts() {
           username: '@yourhandle',
           isConnected: true,
           followers: 1250,
+          status: 'active',
+          preferredHours: [],
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
         },
         {
           id: '2',
@@ -55,6 +61,10 @@ export default function Accounts() {
           username: '@yourtwitterhandle',
           isConnected: true,
           followers: 890,
+          status: 'active',
+          preferredHours: [],
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
         },
         {
           id: '3',
@@ -62,6 +72,10 @@ export default function Accounts() {
           username: 'Your Page',
           isConnected: false,
           followers: 0,
+          status: 'paused',
+          preferredHours: [],
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
         },
       ]);
     } finally {
@@ -113,8 +127,9 @@ export default function Accounts() {
 
         <div className="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {accounts.map((account) => {
-            const Icon = platformIcons[account.platform as keyof typeof platformIcons] || Instagram;
-            const colorClass = platformColors[account.platform as keyof typeof platformColors] || 'text-gray-600';
+            const platformKey = account.platform as keyof typeof platformIcons;
+            const Icon = platformIcons[platformKey] || Instagram;
+            const colorClass = platformColors[platformKey] || 'text-gray-600';
 
             return (
               <div key={account.id} className="bg-white overflow-hidden shadow rounded-lg">

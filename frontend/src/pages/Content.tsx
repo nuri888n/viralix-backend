@@ -1,7 +1,9 @@
-import { useState, useRef, createElement } from 'react';
+import { useState, useRef, createElement, useEffect } from 'react';
 import Layout from '../components/Layout';
-import { uploadContent } from '../lib/api';
-import { Upload, Calendar, Image, Video, FileText } from 'lucide-react';
+import { uploadContent, getPosts, type Post } from '../lib/api';
+import { Upload, Calendar, Image, Video, FileText, Clock, CheckCircle, AlertCircle, Edit } from 'lucide-react';
+import { formatRelativeTime, getStatusColor } from '../lib/utils';
+// import { toast } from '../lib/toast'; // TODO: Add toast notifications for better UX
 
 export default function Content() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -11,7 +13,26 @@ export default function Content() {
   const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
   const [uploadSuccess, setUploadSuccess] = useState(false);
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [postsLoading, setPostsLoading] = useState(true);
+  const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    loadPosts();
+  }, [selectedStatus]);
+
+  const loadPosts = async () => {
+    try {
+      setPostsLoading(true);
+      const data = await getPosts(selectedStatus === 'all' ? {} : { status: selectedStatus });
+      setPosts(data);
+    } catch (error) {
+      console.error('Failed to load posts:', error);
+    } finally {
+      setPostsLoading(false);
+    }
+  };
 
   const platforms = [
     { id: 'instagram', name: 'Instagram' },
@@ -68,6 +89,8 @@ export default function Content() {
 
       await uploadContent(formData);
       setUploadSuccess(true);
+      // Reload posts to show the new one
+      loadPosts();
 
       // Reset form
       setSelectedFile(null);
@@ -229,15 +252,94 @@ export default function Content() {
             </div>
           </form>
 
-          {/* Recent Posts */}
+          {/* Posts List */}
           <div className="mt-8 bg-white shadow rounded-lg">
             <div className="px-4 py-5 sm:p-6">
-              <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
-                Recent Posts
-              </h3>
-              <div className="text-sm text-gray-500">
-                <p>No recent posts yet. Upload your first content above!</p>
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-lg leading-6 font-medium text-gray-900">
+                  Your Posts
+                </h3>
+                <div className="flex items-center space-x-3">
+                  <select
+                    value={selectedStatus}
+                    onChange={(e) => setSelectedStatus(e.target.value)}
+                    className="text-sm border border-gray-300 rounded-md px-3 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="all">All Posts</option>
+                    <option value="draft">Drafts</option>
+                    <option value="scheduled">Scheduled</option>
+                    <option value="published">Published</option>
+                    <option value="failed">Failed</option>
+                  </select>
+                </div>
               </div>
+
+              {postsLoading ? (
+                <div className="flex justify-center items-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                  <span className="ml-2 text-gray-600">Loading posts...</span>
+                </div>
+              ) : posts.length === 0 ? (
+                <div className="text-center py-8">
+                  <FileText className="mx-auto h-12 w-12 text-gray-400" />
+                  <h3 className="mt-2 text-sm font-medium text-gray-900">
+                    {selectedStatus === 'all' ? 'No posts yet' : `No ${selectedStatus} posts`}
+                  </h3>
+                  <p className="mt-1 text-sm text-gray-500">
+                    {selectedStatus === 'all' ? 'Upload your first content above!' : `No posts with ${selectedStatus} status found.`}
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {posts.map((post) => {
+                    const statusIcon = {
+                      draft: Edit,
+                      scheduled: Clock,
+                      published: CheckCircle,
+                      failed: AlertCircle,
+                    }[post.status] || FileText;
+                    const StatusIcon = statusIcon;
+
+                    return (
+                      <div key={post.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-sm transition-shadow">
+                        <div className="flex items-start space-x-4">
+                          <div className="flex-shrink-0">
+                            <StatusIcon className={`h-5 w-5 ${
+                              post.status === 'published' ? 'text-green-500' :
+                              post.status === 'scheduled' ? 'text-blue-500' :
+                              post.status === 'failed' ? 'text-red-500' :
+                              'text-gray-500'
+                            }`} />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between">
+                              <p className="text-sm font-medium text-gray-900 truncate">
+                                {post.content.length > 60 ? `${post.content.substring(0, 60)}...` : post.content}
+                              </p>
+                              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(post.status)}`}>
+                                {post.status}
+                              </span>
+                            </div>
+                            <div className="mt-1 flex items-center text-sm text-gray-500 space-x-4">
+                              <span>
+                                {post.status === 'scheduled' ? `Scheduled ${formatRelativeTime(post.scheduledAt)}` :
+                                 post.status === 'published' && post.publishedAt ? `Published ${formatRelativeTime(post.publishedAt)}` :
+                                 `Created ${formatRelativeTime(post.createdAt)}`}
+                              </span>
+                              {post.mediaUrls.length > 0 && (
+                                <span className="flex items-center">
+                                  <Image className="h-4 w-4 mr-1" />
+                                  {post.mediaUrls.length} media
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </div>
         </div>

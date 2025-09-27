@@ -1,12 +1,13 @@
 export interface User {
-  id: string;
+  id: number;
   email: string;
-  password: string;
+  passwordHash: string;
   createdAt: Date;
 }
 
 export interface UserPayload {
-  id: string;
+  id: number;
+  userId: number;
   email: string;
 }
 
