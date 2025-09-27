@@ -1,0 +1,15 @@
+node_modules
+dist
+frontend
+.git
+.env.local
+.env.development
+*.log
+.DS_Store
+**/*.test.ts
+**/*.spec.ts
+**/__tests__
+**/test
+**/*test*
+backup
+coverage
