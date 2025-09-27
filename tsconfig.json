@@ -12,15 +12,13 @@
     "resolveJsonModule": true,
     "typeRoots": ["./node_modules/@types"]
   },
-  "include": ["src/**/*.ts"],
-  "exclude": [
-    "node_modules",
-    "dist",
-    "frontend",
-    "**/*.test.*",
-    "**/*.spec.*",
-    "**/__tests__/**",
-    "**/test/**",
-    "**/*test*/**"
+  "include": [
+    "src/index.ts",
+    "src/db.ts",
+    "src/hello.ts",
+    "src/worker.ts",
+    "src/middleware/*.ts",
+    "src/routes/*.ts",
+    "src/types/*.ts"
   ]
 }

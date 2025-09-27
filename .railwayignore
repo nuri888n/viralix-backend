@@ -1,38 +1,29 @@
-# Test files
-**/*.test.ts
-**/*.spec.ts
-**/__tests__/
+# Exclude everything except what we need
+*
+
+# Include only production files
+!src/
 src/__tests__/
+src/**/__tests__/
+src/**/*.test.*
+src/**/*.spec.*
 
-# Development files
-*.test.js
-*.spec.js
-jest.config.*
-coverage/
+!package.json
+!package-lock.json
+!tsconfig.json
+!prisma/
+!.env
 
-# Frontend (not needed for backend deployment)
-frontend/
+# Specific includes for src
+!src/index.ts
+!src/db.ts
+!src/hello.ts
+!src/worker.ts
+!src/middleware/
+!src/routes/
+!src/types/
+!src/**/*.ts
 
-# Development dependencies
-.env.local
-.env.development
-
-# IDE files
-.vscode/
-.idea/
-*.swp
-*.swo
-
-# OS files
-.DS_Store
-Thumbs.db
-
-# Logs
-logs/
-*.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-
-# Backup files
-backup/
+# But exclude any test files in src
+src/**/*test*
+src/**/*spec*
