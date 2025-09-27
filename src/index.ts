@@ -14,6 +14,9 @@ import dashboardRouter from './routes/dashboard';
 // Load environment variables
 dotenv.config();
 
+// RAILWAY BUILD FIX: This comment forces rebuild - no test files exist
+console.log('✅ Viralix Backend starting - Build timestamp:', new Date().toISOString());
+
 const app = express();
 const stripe = process.env.STRIPE_SECRET_KEY ? new Stripe(process.env.STRIPE_SECRET_KEY) : null;
 const PORT = process.env.PORT || 3000;
