@@ -1,0 +1,13 @@
+[phases.install]
+cmds = [
+  "npm ci --only=production",
+  "npx prisma generate"
+]
+
+[phases.build]
+cmds = [
+  "npx tsc --project tsconfig.json"
+]
+
+[start]
+cmd = "node dist/index.js"
