@@ -7,18 +7,29 @@
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
-    "rootDir": "src",
+    "rootDir": "./src",
     "outDir": "./dist",
     "resolveJsonModule": true,
-    "typeRoots": ["./node_modules/@types"]
+    "typeRoots": ["./node_modules/@types"],
+    "declaration": false,
+    "sourceMap": false
   },
   "include": [
-    "src/index.ts",
-    "src/db.ts",
-    "src/hello.ts",
-    "src/worker.ts",
-    "src/middleware/*.ts",
-    "src/routes/*.ts",
-    "src/types/*.ts"
+    "src/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "frontend",
+    "scripts",
+    "backup",
+    "**/*.test.ts",
+    "**/*.test.js",
+    "**/*.spec.ts",
+    "**/*.spec.js",
+    "**/__tests__/**",
+    "**/test/**",
+    "**/*test*/**",
+    "**/tests/**"
   ]
 }
