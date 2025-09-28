@@ -5,7 +5,7 @@
   "license": "MIT",
   "scripts": {
     "dev": "tsx watch src/index.ts",
-    "build": "npx prisma generate && tsc",
+    "build": "npx prisma generate && npx prisma db push && tsc",
     "start": "node dist/index.js",
     "test": "jest",
     "typecheck": "tsc --noEmit",
