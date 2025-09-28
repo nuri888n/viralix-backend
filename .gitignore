@@ -41,3 +41,4 @@ zeigt
 
 # Backup code (not needed for deployment)
 backup/
+.env
