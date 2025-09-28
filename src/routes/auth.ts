@@ -8,6 +8,16 @@ const router = Router();
 const prisma = new PrismaClient();
 const JWT_SECRET = process.env.JWT_SECRET || "dev-secret-change-me";
 
+// DEBUG endpoint
+router.get("/debug", async (req, res) => {
+  try {
+    const result = await prisma.$queryRaw`SELECT 1 as test`;
+    res.json({ database: "connected", result, env: process.env.DATABASE_URL ? "set" : "missing" });
+  } catch (error) {
+    res.status(500).json({ database: "error", error: (error as Error).message });
+  }
+});
+
 const RegisterSchema = z.object({
   email: z.string().email(),
   password: z.string().min(6),
